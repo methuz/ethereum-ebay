@@ -5,7 +5,7 @@
   "scripts": {
     "lint": "eslint ./",
     "build": "webpack",
-    "dev": "webpack-dev-server"
+    "dev": "webpack-dev-server --host 0.0.0.0 --port 9999"
   },
   "author": "Douglas von Kohorn",
   "license": "MIT",
@@ -35,6 +35,8 @@
     "webpack-dev-server": "^2.3.0"
   },
   "dependencies": {
-    "ethereumjs-util": "^5.1.2"
+    "ethereumjs-util": "^5.1.2",
+    "ipfs-api": "^14.1.2",
+    "standard": "^10.0.3"
   }
 }

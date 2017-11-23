@@ -41,6 +41,116 @@ window.App = {
       saveProduct(reader, decodedParams);
       event.preventDefault();
     });
+
+    if ($("#product-details").length > 0) {
+      let productId = new URLSearchParams(window.location.search).get('id');
+      renderProductDetails(productId);
+    }
+
+    $("#bidding").submit(function(event) {
+      $("#msg").hide();
+      let amount = $("#bid-amount").val();
+      let sendAmount = $("#bid-send-amount").val();
+      let secretText = $("#secret-text").val();
+      let sealedBid = '0x' + ethUtil.sha3(web3.toWei(amount, 'ether') + secretText).toString('hex');
+      let productId = $("#product-id").val();
+      console.log(sealedBid + " for " + productId);
+      EcommerceStore.deployed().then(function(i) {
+        i.bid(parseInt(productId),
+          sealedBid,
+          {
+            value: web3.toWei(sendAmount),
+            from: web3.eth.accounts[1],
+            gas: 440000
+          }).then(function(f) {
+          $("#msg").html("Your bid has been successfully submitted!");
+          $("#msg").show();
+          console.log(f)
+        })
+      })
+    })
+
+    $("#revealing").submit(function(event) {
+        $("msg").hide();
+        let amount = $("#actual-amount").val();
+        let secretText = $("#reveal-secret-text").val();
+        let productId = $("#product-id").val();
+        EcommerceStore.deployed().then(function(i) {
+            i.revealedBid(parseInt(productId), web3.toWei(amount).toString(), secretText, {from: web3.eth.accounts[1], gas: 400000})
+            .then(function(f) {
+                $("#msg").show();
+                $("#msg").html("Your bid has been successfully revealed!");
+                console.log(f)
+            })
+        })
+        event.preventDefault();
+    })
+  }
+}
+
+function renderProductDetails(productId) {
+  EcommerceStore.deployed().then(function(i) {
+    i.getProduct.call(productId).then(function(p) {
+      console.log(p);
+      let content = "";
+      ipfs.cat(p[4]).then(function(stream) {
+        stream.on('data', function(chunk) {
+          // do stuff with this chunk of data
+          content += chunk.toString();
+          $("#product-desc").append("<div>" + content + "</div>");
+        })
+      });
+
+      $("#product-image").append("<img src='https://ipfs.io/ipfs/" + p[3] + "' width='250px' />");
+      $("#product-price").html(displayPrice(p[7]));
+      $("#product-name").html(p[1].name);
+      $("#product-auction-end").html(displayEndHours(p[6]));
+      $("#product-id").val(p[0]);
+      $("#revealing, #bidding").hide();
+      let currentTime = getCurrentTimeInSeconds();
+      if (currentTime < p[6]) {
+        $("#bidding").show();
+      } else if (currentTime - (60) < p[6]) {
+        $("#revealing").show();
+      }
+    })
+  })
+}
+
+function getCurrentTimeInSeconds() {
+  return Math.round(new Date() / 1000);
+}
+
+function displayPrice(amt) {
+  return 'Ξ' + web3.fromWei(amt, 'ether');
+}
+
+
+function displayEndHours(seconds) {
+  let current_time = getCurrentTimeInSeconds()
+  let remaining_seconds = seconds - current_time;
+
+  if (remaining_seconds <= 0) {
+    return "Auction has ended";
+  }
+
+  let days = Math.trunc(remaining_seconds / (24 * 60 * 60));
+
+  remaining_seconds -= days * 24 * 60 * 60
+  let hours = Math.trunc(remaining_seconds / (60 * 60));
+
+  remaining_seconds -= hours * 60 * 60
+
+  let minutes = Math.trunc(remaining_seconds / 60);
+
+  if (days > 0) {
+    return "Auction ends in " + days + " days, " + hours + ", hours, " + minutes + " minutes";
+  } else if (hours > 0) {
+    return "Auction ends in " + hours + " hours, " + minutes + " minutes ";
+  } else if (minutes > 0) {
+    return "Auction ends in " + minutes + " minutes ";
+  } else {
+    return "Auction ends in " + remaining_seconds + " seconds";
   }
 }
 
@@ -62,11 +172,11 @@ function saveTextBlobOnIpfs(blob) {
     const descBuffer = Buffer.from(blob, 'utf-8')
     ipfs.add(descBuffer)
       .then((response) => {
-		resolve(response[0].hash)
+        resolve(response[0].hash)
       }).catch((err) => {
-        console.error(err)
-        reject(err)
-      })
+      console.error(err)
+      reject(err)
+    })
   })
 }
 
